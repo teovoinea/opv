@@ -5,7 +5,11 @@ extern crate texture;
 
 
 use piston_window::{PistonWindow, Texture, WindowSettings, TextureSettings, clear};
-use image::ConvertBuffer;
+use image::{
+    ConvertBuffer,
+    ImageBuffer,
+    Rgba
+};
 
 use std::net::UdpSocket;
 
@@ -25,6 +29,7 @@ fn main() {
         .unwrap();
 
     let mut tex: Option<Texture<_>> = None;
+    let mut remote_tex: Option<Texture<_>> = None;
 
     //webcam to window
     let (sender, receiver) = std::sync::mpsc::channel();
@@ -33,7 +38,7 @@ fn main() {
     let (netsender, netreceiver): (_, Receiver<Vec<u8>>)= std::sync::mpsc::channel();
 
     //network to window
-    //let (remotesender, remotereceiver) = std::sync::mpsc::channel();
+    let (remotesender, remotereceiver) = std::sync::mpsc::channel();
 
     //webcam to network
     let socket = UdpSocket::bind("127.0.0.1:34254").expect("couldn't bind to address");
@@ -42,12 +47,21 @@ fn main() {
     let remotesocket = UdpSocket::bind("127.0.0.1:4242").expect("couldn't bind to address");
 
     let remotethread = std::thread::spawn(move || {
+        let mut frame_buf: Vec<u8> = Vec::with_capacity(1228800);
         loop {
             let mut buf = [0; 1500];
             match remotesocket.recv(&mut buf) {
                 Ok(received) => {
                     //received this many bytes
-                    println!("{:?}", received);
+                    //println!("{:?}", received);
+                    frame_buf.extend(buf.iter());
+                    if frame_buf.len() >= 1228800 as usize {
+                        println!("we got a frame fam");
+                        let mut new_frame = frame_buf.split_off(1228800);
+                        let frame: ImageBuffer<Rgba<u8>, Vec<u8>> = ImageBuffer::from_raw(640, 480, frame_buf).unwrap();
+                        remotesender.send(frame);
+                        frame_buf = new_frame;
+                    }
                 }
                 Err(e) => {
                     println!("error reading from remote socket");
@@ -89,22 +103,40 @@ fn main() {
         }
     });
 
-    while let Some(e) = window.next() {
-        if let Ok(frame) = receiver.try_recv() {
-            if let Some(mut t) = tex {
-                t.update(&mut window.encoder, &frame).unwrap();
-                tex = Some(t);
-            } else {
-                tex = Texture::from_image(&mut window.factory, &frame, &TextureSettings::new()).ok();
+    loop {
+        if let Some(e) = window.next() {
+            if let Ok(frame) = receiver.try_recv() {
+                if let Some(mut t) = tex {
+                    t.update(&mut window.encoder, &frame).unwrap();
+                    tex = Some(t);
+                } else {
+                    tex = Texture::from_image(&mut window.factory, &frame, &TextureSettings::new()).ok();
+                }
+                netsender.send(frame.into_raw());
             }
-            netsender.send(frame.into_raw());
+            window.draw_2d(&e,|c, g| {
+                clear([1.0; 4], g);
+                if let Some(ref t) = tex {
+                    piston_window::image(t, c.transform, g);
+                }
+            });
         }
-        window.draw_2d(&e,|c, g| {
-            clear([1.0; 4], g);
-            if let Some(ref t) = tex {
-                piston_window::image(t, c.transform, g);
+        if let Some(e) = remote_window.next() {
+            if let Ok(frame) = remotereceiver.try_recv() {
+                if let Some(mut t) = remote_tex {
+                    t.update(&mut remote_window.encoder, &frame).unwrap();
+                    remote_tex = Some(t);
+                } else {
+                    remote_tex = Texture::from_image(&mut remote_window.factory, &frame, &TextureSettings::new()).ok();
+                }
             }
-        });
+            remote_window.draw_2d(&e,|c, g| {
+                clear([1.0; 4], g);
+                if let Some(ref t) = remote_tex {
+                    piston_window::image(t, c.transform, g);
+                }
+            });
+        }
     }
     drop(receiver);
     //drop(netreceiver);
