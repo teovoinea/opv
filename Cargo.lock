@@ -1,5 +1,5 @@
 [root]
-name = "webcam"
+name = "OPV"
 version = "0.1.0"
 dependencies = [
  "camera_capture 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
