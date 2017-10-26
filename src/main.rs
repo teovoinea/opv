@@ -13,17 +13,48 @@ use std::sync::mpsc::{Receiver, Sender, channel};
 
 fn main() {
     let mut window: PistonWindow =
-        WindowSettings::new("piston: image", [1280, 720])
+        WindowSettings::new("You", [640, 480])
+        .exit_on_esc(true)
+        .build()
+        .unwrap();
+
+    let mut remote_window: PistonWindow =
+        WindowSettings::new("Them", [640, 480])
         .exit_on_esc(true)
         .build()
         .unwrap();
 
     let mut tex: Option<Texture<_>> = None;
+
+    //webcam to window
     let (sender, receiver) = std::sync::mpsc::channel();
 
+    //webcam to network
     let (netsender, netreceiver): (_, Receiver<Vec<u8>>)= std::sync::mpsc::channel();
 
+    //network to window
+    //let (remotesender, remotereceiver) = std::sync::mpsc::channel();
+
+    //webcam to network
     let socket = UdpSocket::bind("127.0.0.1:34254").expect("couldn't bind to address");
+
+    //network to window
+    let remotesocket = UdpSocket::bind("127.0.0.1:4242").expect("couldn't bind to address");
+
+    let remotethread = std::thread::spawn(move || {
+        loop {
+            let mut buf = [0; 1500];
+            match remotesocket.recv(&mut buf) {
+                Ok(received) => {
+                    //received this many bytes
+                    println!("{:?}", received);
+                }
+                Err(e) => {
+                    println!("error reading from remote socket");
+                }
+            }
+        }
+    });
 
     let imgthread = std::thread::spawn(move || {
         let mut cam = camera_capture::create(0).unwrap()
@@ -34,12 +65,12 @@ fn main() {
         loop {
             match cam.next() {
                 Some(img) => {
-                    print!("frame");
+                    //print!("frame");
                     sender.send(img.convert());
                 }
 
                 None => {
-                    print!("nothing yet");
+                    //print!("nothing yet");
                 }
             }
         }
@@ -49,9 +80,9 @@ fn main() {
         loop {
             if let Ok(bytes) = netreceiver.try_recv() {
                 //let bytes_iter = bytes.iter(); 
-                for chunk in bytes.chunks(100) {
+                for chunk in bytes.chunks(1500) {
                     socket.send_to(chunk, "127.0.0.1:4242").expect("couldn't send data");
-                    print!("sending chunk");
+                    //print!("sending chunk");
                 }
 
             }
@@ -79,4 +110,5 @@ fn main() {
     //drop(netreceiver);
     imgthread.join().unwrap();
     netthread.join().unwrap();
+    remotethread.join().unwrap();
 }
