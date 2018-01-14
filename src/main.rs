@@ -1,8 +1,11 @@
 extern crate camera_capture;
 extern crate piston_window;
 extern crate image;
-extern crate texture;
-
+#[macro_use]
+extern crate serde_derive;
+extern crate bincode;
+#[macro_use]
+extern crate lazy_static;
 
 use piston_window::{PistonWindow, Texture, WindowSettings, TextureSettings, clear};
 use image::{
@@ -15,7 +18,21 @@ use std::net::UdpSocket;
 
 use std::sync::mpsc::{Receiver, Sender, channel};
 
+pub mod local;
+pub mod network;
+pub mod remote;
+pub mod transcode;
+
 fn main() {
+    let local_thread = std::thread::Builder::new().name("Local Window".to_string()).spawn(move || {
+        local::capture::main()
+    });
+    let remote_thread = std::thread::Builder::new().name("Remote Window".to_string()).spawn(move || {
+        remote::capture::main();
+    });
+    local_thread.unwrap().join().unwrap();
+    remote_thread.unwrap().join().unwrap();
+    /*
     let mut window: PistonWindow =
         WindowSettings::new("You", [640, 480])
         .exit_on_esc(true)
@@ -47,6 +64,7 @@ fn main() {
     let remotesocket = UdpSocket::bind("127.0.0.1:4242").expect("couldn't bind to address");
 
     let remotethread = std::thread::spawn(move || {
+        //let mut frame_buf = vec![0; 1228800];
         let mut frame_buf: Vec<u8> = Vec::with_capacity(1228800);
         loop {
             let mut buf = [0; 1500];
@@ -54,6 +72,17 @@ fn main() {
                 Ok(received) => {
                     //received this many bytes
                     //println!("{:?}", received);
+                    //frame_buf.extend(buf.iter());
+                    /*
+                    println!("chunk #{:?}", buf[0]);
+                    println!("packet size{:?}", buf.len());
+                    let buffer_index: usize = buf[0] as usize * 1500;
+                    for i in buffer_index..buffer_index+buf.len() - 1 {
+                        frame_buf[i] = buf[i - buffer_index];
+                    }
+                    let frame: ImageBuffer<Rgba<u8>, Vec<u8>> = ImageBuffer::from_raw(640, 480, frame_buf.clone()).unwrap();
+                    remotesender.send(frame);*/
+                    println!("chunk #{:?}", buf[0]);
                     frame_buf.extend(buf.iter());
                     if frame_buf.len() >= 1228800 as usize {
                         println!("we got a frame fam");
@@ -94,7 +123,9 @@ fn main() {
         loop {
             if let Ok(bytes) = netreceiver.try_recv() {
                 //let bytes_iter = bytes.iter(); 
-                for chunk in bytes.chunks(1500) {
+                for (i, chunk) in bytes.chunks(1500).enumerate() {
+                    let s = [i as u8];
+                    let concatenated = [&s, chunk].concat();
                     socket.send_to(chunk, "127.0.0.1:4242").expect("couldn't send data");
                     //print!("sending chunk");
                 }
@@ -143,4 +174,5 @@ fn main() {
     imgthread.join().unwrap();
     netthread.join().unwrap();
     remotethread.join().unwrap();
+    */
 }
