@@ -6,6 +6,8 @@ extern crate serde_derive;
 extern crate bincode;
 #[macro_use]
 extern crate lazy_static;
+extern crate stun;
+//extern crate portaudio;
 
 use piston_window::{PistonWindow, Texture, WindowSettings, TextureSettings, clear};
 use image::{
@@ -24,6 +26,9 @@ pub mod remote;
 pub mod transcode;
 
 fn main() {
+    let local_address = network::connect::init("stun.stunprotocol.org:3478", 34254);
+    //TODO(teo): error handling
+    println!("Others can connect to you at: {:?}", local_address);
     let local_thread = std::thread::Builder::new().name("Local Window".to_string()).spawn(move || {
         local::capture::main()
     });
