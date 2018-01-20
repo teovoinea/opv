@@ -13,7 +13,7 @@ use transcode::{
     decode
 };
 
-pub fn net_recv(address: &'static str, sender: Sender<ImageBuffer<Rgba<u8>, Vec<u8>>>) {
+pub fn net_recv(address: &str, sender: Sender<ImageBuffer<Rgba<u8>, Vec<u8>>>) {
     {
         let socket = UdpSocket::bind(address).expect("couldn't bind to address");
         let netthread = std::thread::Builder::new().name("Network Receive".to_string()).spawn(move || {

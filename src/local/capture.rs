@@ -14,7 +14,7 @@ use std;
 use network::send;
 use transcode::encode;
 
-pub fn main() {
+pub fn main(source: &str, destination: &str) {
     let mut window: PistonWindow =
         WindowSettings::new("You", [640, 480])
         .exit_on_esc(true)
@@ -26,7 +26,8 @@ pub fn main() {
     let (sender, receiver) = std::sync::mpsc::channel();
     let (netsender, netreceiver) = std::sync::mpsc::channel();
 
-    let localSend = send::net_send("127.0.0.1:34254", "127.0.0.1:4242", netreceiver);
+
+    let localSend = send::net_send(source, destination, netreceiver);
     
     let imgthread = std::thread::Builder::new().name("Webcam".to_string()).spawn(move || {
         let mut cam = camera_capture::create(0).unwrap()

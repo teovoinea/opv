@@ -7,8 +7,9 @@ use bincode::{serialize, Infinite};
 
 use transcode::Chunk;
 
-pub fn net_send(src: &'static str, dst: &'static str,receiver: Receiver<Vec<Chunk>>) {
+pub fn net_send(src: &str, dst: &str, receiver: Receiver<Vec<Chunk>>) {
     let socket = UdpSocket::bind(src).expect("couldn't bind to address");
+    let dst_clone = String::from(dst);
     let netthread = std::thread::Builder::new().name("Network Send".to_string()).spawn(move || {
         loop {
             if let Ok(chunks) = receiver.try_recv() {
@@ -16,7 +17,12 @@ pub fn net_send(src: &'static str, dst: &'static str,receiver: Receiver<Vec<Chun
                     let res = serialize(&chunk, Infinite);
                     match res {
                         Ok(bytes) => {
-                            socket.send_to(bytes.as_slice(), dst).expect("couldn't send data");
+                            if let Ok(sent) = socket.send_to(bytes.as_slice(), &dst_clone) {
+                                //gucci
+                            }
+                            else {
+                                //println!("Error sending data");
+                            }
                         }
 
                         Err(_) => {
@@ -24,6 +30,9 @@ pub fn net_send(src: &'static str, dst: &'static str,receiver: Receiver<Vec<Chun
                         }
                     }
                 }
+            }
+            else {
+                //println!("Error receving data for network");
             }
         }
     });

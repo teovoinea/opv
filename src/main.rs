@@ -8,7 +8,11 @@ extern crate bincode;
 extern crate lazy_static;
 extern crate stun;
 //extern crate portaudio;
+#[macro_use]
+extern crate clap;
+extern crate pnet;
 
+use clap::{Arg, App, SubCommand};
 use piston_window::{PistonWindow, Texture, WindowSettings, TextureSettings, clear};
 use image::{
     ConvertBuffer,
@@ -26,14 +30,88 @@ pub mod remote;
 pub mod transcode;
 
 fn main() {
-    let local_address = network::connect::init("stun.stunprotocol.org:3478", 34254);
+    let matches = App::new("OPV")
+                        .version("0.1")
+                        .author("Teo V. <voinea.teodor@gmail.com>")
+                        .about("Open source peer to peer video chat")
+                        .arg(Arg::with_name(("source ip"))
+                            .short("a")
+                            .long("source-ip")
+                            .value_name("<source-ip")
+                            .help("Sets the local networking interface")
+                            .takes_value(true)
+                            .default_value("auto"))
+                        .arg(Arg::with_name("source port")
+                            .short("p")
+                            .long("source-port")
+                            .value_name("<source-port>")
+                            .help("Sets the sending port")
+                            .takes_value(true)
+                            .default_value("34254"))
+                        .arg(Arg::with_name("listening port")
+                            .short("l")
+                            .long("listening-port")
+                            .value_name("<listening-port>")
+                            .help("Sets the listening port")
+                            .takes_value(true)
+                            .default_value("4242"))
+                        .arg(Arg::with_name("STUN address")
+                            .short("s")
+                            .long("stun-address")
+                            .value_name("<stun.server.address>:<port-number>")
+                            .help("Sets the stun server. eg: stun.mystunserver.org:3478")
+                            .takes_value(true)
+                            .default_value("stun.stunprotocol.org:3478"))
+                        .arg(Arg::with_name("destination ip")
+                            .short("d")
+                            .long("destination-ip")
+                            .value_name("<destination-ip>")
+                            .help("Sets the ip of the other party")
+                            .takes_value(true)
+                            .required(true))
+                        .arg(Arg::with_name("destination port")
+                            .short("i")
+                            .long("destination-port")
+                            .value_name("<destionation-port>")
+                            .help("Sets the port of the other party")
+                            .takes_value(true)
+                            .default_value("4242"))
+                        .get_matches();
+
+    let source_port = value_t!(matches, "source port", u16).unwrap_or(34254);
+    let listening_port = value_t!(matches, "listening port", u16).unwrap_or(34254);
+    let mut source_ip = matches.value_of("source ip").unwrap().to_string();
+    if source_ip == "auto" {
+        //source_address = network::connect::find_interface();
+        source_ip = String::from("192.168.10.102");
+    }
+    let mut source_address = String::new();
+    source_address.push_str(&source_ip);
+    source_address.push_str(":");
+    source_address.push_str(&source_port.to_string());
+    let mut listening_address = String::new();
+    listening_address.push_str(&source_ip);
+    listening_address.push_str(":");
+    listening_address.push_str(&listening_port.to_string());
+    let stun_server = matches.value_of("STUN address").unwrap();
+    let destination_ip = matches.value_of("destination ip").unwrap();
+    let destination_port = matches.value_of("destination port").unwrap();
+    let mut destination_address = String::new();
+    destination_address.push_str(&destination_ip);
+    destination_address.push_str(":");
+    destination_address.push_str(&destination_port);
+
+    let internet_address = network::connect::init(stun_server, listening_port);
+
+    println!("Sending from {:?} to {:?}", source_address, destination_address);
+    println!("Listening on {:?}", listening_address);
     //TODO(teo): error handling
-    println!("Others can connect to you at: {:?}", local_address);
+    println!("Others can connect to you at: {:?}", internet_address);
     let local_thread = std::thread::Builder::new().name("Local Window".to_string()).spawn(move || {
-        local::capture::main()
+        local::capture::main(source_address.as_str(), destination_address.as_str());
     });
     let remote_thread = std::thread::Builder::new().name("Remote Window".to_string()).spawn(move || {
-        remote::capture::main();
+        remote::capture::main(listening_address.as_str());
     });
     local_thread.unwrap().join().unwrap();
     remote_thread.unwrap().join().unwrap();

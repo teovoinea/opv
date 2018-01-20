@@ -13,7 +13,7 @@ use image::{
 use std;
 use network::recv;
 
-pub fn main() {
+pub fn main(source: &str) {
     let mut window: PistonWindow =
         WindowSettings::new("Them", [640, 480])
         .exit_on_esc(true)
@@ -23,7 +23,7 @@ pub fn main() {
     let mut tex: Option<Texture<_>> = None;
 
     let (netsender, netreceiver) = std::sync::mpsc::channel();
-    let localRecv = recv::net_recv("127.0.0.1:4242", netsender);
+    let localRecv = recv::net_recv(source, netsender);
 
     while let Some(e) = window.next() {
         if let Ok(frame) = netreceiver.try_recv() {
