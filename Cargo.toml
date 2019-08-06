@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["teovoinea <voinea.teodor@gmail.com>"]
 
 [dependencies]
-image = "0.15"
+image = "0.19"
 camera_capture = "0.4.0"
 piston_window = "0.70.0"
 piston-texture = "0.7.0"
