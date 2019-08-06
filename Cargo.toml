@@ -5,7 +5,7 @@ authors = ["teovoinea <voinea.teodor@gmail.com>"]
 
 [dependencies]
 image = "0.15"
-camera_capture = "0.4.0"
+camera_capture = "0.5.0"
 piston_window = "0.70.0"
 piston-texture = "0.7.0"
 serde = "1.0"
